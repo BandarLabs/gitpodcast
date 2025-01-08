@@ -23,11 +23,8 @@ interface Subtitle {
     text: string;
   }
 
-  type RepoProps = {
-    audioLength: string | null;
-  };
 
-const Repo: React.FC<RepoProps> = () =>  {
+const Repo: React.FC = () =>  {
   const {audioLength, anotherVariable} = useGlobalState();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const params = useParams<{ username: string; repo: string }>();
