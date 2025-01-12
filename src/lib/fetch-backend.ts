@@ -120,7 +120,7 @@ interface GenerateAudioResponse {
                     console.info("Serving content from cache.");
                     // Convert the base64 audio back to a Blob
                     const cachedAudioBuffer = Buffer.from(cachedAudioBase64, 'base64');
-                    const cachedAudioBlob = new Blob([cachedAudioBuffer]);
+                    const cachedAudioBlob = new Blob([cachedAudioBuffer], { type: 'audio/mpeg' });
                     return { audioBlob: cachedAudioBlob, vtt: cachedVtt };
                 }
             } catch (error) {
@@ -162,6 +162,7 @@ interface GenerateAudioResponse {
       const audioBuffer = await blobToBuffer(audioBlob);
       const vttContent = response.headers.get("x-vtt-content");
 
+
       // Call the server action to cache the diagram
      await cacheAudioAndWebVtt(
         username,
@@ -169,7 +170,7 @@ interface GenerateAudioResponse {
         b64encode(audioBuffer),
         vttContent ?? '',
       );
-      return { audioBlob: audioBlob,  vtt: vttContent ?? '' };
+      return { audioBlob:new Blob([audioBuffer], { type: 'audio/mpeg' }),  vtt: vttContent ?? '' };
     } catch (error) {
       console.error("Error generating audio:", error);
       return { error: "Failed to generate audio. Please try again later." };

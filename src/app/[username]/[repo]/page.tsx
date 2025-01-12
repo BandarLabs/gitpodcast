@@ -142,7 +142,7 @@ const Repo: React.FC = () =>  {
                 <div className="flex w-full justify-center flex-col" style={{ maxWidth: "360px" }} >
                     <div>
                         <audio ref={videoRef} style={{ width: "100%" }} id="audioVideo" controls crossOrigin="anonymous">
-                            <source src={audioUrl} type="audio/mp3" />
+                            <source src={audioUrl} type="audio/mpeg" />
                             {/* <track src={subtitleUrl} kind="subtitles" label="English" srcLang="en" default/> */}
                         </audio>
                     </div>
