@@ -16,6 +16,9 @@ import base64
 from pydub import AudioSegment
 import io
 import concurrent.futures
+from clerk_backend_api import Clerk
+from clerk_backend_api.jwks_helpers import authenticate_request, AuthenticateRequestOptions
+
 
 load_dotenv()
 
@@ -26,6 +29,16 @@ github_service = GitHubService()
 claude_service = ClaudeService()
 speech_service = SpeechService()
 openai_service = OpenAIService()
+
+
+def is_signed_in(request: Request):
+    sdk = Clerk(bearer_auth=os.getenv('CLERK_SECRET_KEY'))
+    request_state = authenticate_request(
+        sdk,
+        request,
+        AuthenticateRequestOptions()
+    )
+    return request_state.is_signed_in
 
 # cache github data for 5 minutes to avoid double API calls from cost and generate
 @lru_cache(maxsize=100)
@@ -149,12 +162,19 @@ async def generate(request: Request, body: ApiRequest):
         if len(body.instructions) > 1000:
             return {"error": "Instructions exceed maximum length of 1000 characters"}
 
+        audio_length = body.audio_length
+
+        if audio_length == 'long' and not is_signed_in(request):
+            raise HTTPException(
+                status_code=401,
+                detail="Please sign in to access this resource"
+            )
         github_data = get_cached_github_data(body.username, body.repo)
         default_branch = github_data["default_branch"]
         file_tree = github_data["file_tree"]
         readme = github_data["readme"]
         file_content = github_data["file_content"]
-        audio_length = body.audio_length
+
         result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
         # Check if there was an error response
         if isinstance(result, dict):  # There was an error

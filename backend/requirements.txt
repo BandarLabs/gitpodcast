@@ -6,7 +6,7 @@ certifi==2024.12.14
 cffi==1.17.1
 charset-normalizer==3.4.0
 click==8.1.7
-cryptography==44.0.0
+cryptography
 Deprecated==1.2.15
 distro==1.9.0
 dnspython==2.7.0
@@ -53,3 +53,4 @@ openai
 websockets==14.1
 wrapt==1.17.0
 pydub
+clerk-backend-api

@@ -12,6 +12,7 @@ import { exampleRepos } from "~/lib/exampleRepos";
 import { useGlobalState } from "~/app/providers";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import { useAuth, SignInButton } from '@clerk/nextjs'
 
 interface MainCardProps {
   isHome?: boolean;
@@ -34,6 +35,7 @@ export default function MainCard({
   onCopy,
   lastGenerated,
 }: Readonly<MainCardProps>) {
+  const { isLoaded, userId, sessionId, getToken } = useAuth()
   const { audioLength, setAudioLength, setAnotherVariable } = useGlobalState();
   const [repoUrl, setRepoUrl] = useState("");
   const [error, setError] = useState("");
@@ -107,18 +109,26 @@ export default function MainCard({
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div>
         <RadioGroup
-            defaultValue={audioLength}
-            onValueChange={(value) => setAudioLength && setAudioLength(value)}
-        >
-            <div className="flex items-center space-x-2">
-            <RadioGroupItem value="short" id="short" />
-            <Label htmlFor="short">Short (~5min)</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-            <RadioGroupItem value="long" id="long" />
-            <Label htmlFor="long">Long (~10min)</Label>
-            </div>
-        </RadioGroup>
+      defaultValue={audioLength}
+      onValueChange={(value) => setAudioLength && setAudioLength(value)}
+    >
+      <div className="flex items-center space-x-2">
+        <RadioGroupItem value="short" id="short" />
+        <Label htmlFor="short">Short (~5min)</Label>
+      </div>
+      {userId ? ( // Check if user is authenticated
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="long" id="long" />
+          <Label htmlFor="long">Long (~10min)</Label>
+        </div>
+      ) : (
+        <div className="flex items-center space-x-2">
+            <RadioGroupItem value="long" id="long" disabled/>
+          <Label>Long (~10min) - </Label> <SignInButton><Button variant="outline">Sign in to access</Button></SignInButton>
+        </div>
+      )}
+    </RadioGroup>
+
         </div>
         {showCustomization &&
           onModify &&

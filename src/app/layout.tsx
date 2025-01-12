@@ -5,6 +5,7 @@ import { type Metadata } from "next";
 import { Header } from "~/components/header";
 import { Footer } from "~/components/footer";
 import { CSPostHogProvider, GlobalStateProvider } from "./providers";
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const metadata: Metadata = {
   title: "GitPodcast",
@@ -75,15 +76,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${GeistSans.variable}`}>
-        <GlobalStateProvider>
-            <CSPostHogProvider>
-                <body className="flex min-h-screen flex-col">
-                <Header />
-                <main className="flex-grow">{children}</main>
-                <Footer />
-                </body>
-            </CSPostHogProvider>
-      </GlobalStateProvider>
+        <ClerkProvider>
+            <GlobalStateProvider>
+                <CSPostHogProvider>
+                    <body className="flex min-h-screen flex-col">
+                    <Header />
+                    <main className="flex-grow">{children}</main>
+                    <Footer />
+                    </body>
+                </CSPostHogProvider>
+            </GlobalStateProvider>
+        </ClerkProvider>
     </html>
   );
 }

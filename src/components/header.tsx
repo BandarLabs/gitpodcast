@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
 import { getStarCount } from "~/app/_actions/github";
+import { ClerkProvider, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
 
 export async function Header() {
   const starCount = await getStarCount();
@@ -45,6 +46,7 @@ export async function Header() {
             <span className="text-amber-400">★</span>
             {formatStarCount(starCount)}
           </span>
+          <UserButton></UserButton>
         </nav>
       </div>
     </header>

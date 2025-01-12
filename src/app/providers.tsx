@@ -37,7 +37,7 @@ const GlobalStateContext = createContext<{
 // use of dynamic routes like [username]/[repo]/page.tsx is forcing us to use global context else
 // we could have passed audioLength via props
 export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [audioLength, setAudioLength] = useState("long");
+  const [audioLength, setAudioLength] = useState("short");
   const [anotherVariable, setAnotherVariable] = useState("defaultValue");
 
   // Use useMemo to memoize the context value
