@@ -124,7 +124,7 @@ export default function MainCard({
       ) : (
         <div className="flex items-center space-x-2">
             <RadioGroupItem value="long" id="long" disabled/>
-          <Label>Long (~10min) - </Label> <SignInButton><Button variant="outline">Sign in to access</Button></SignInButton>
+          <Label>Long (~10min) - </Label> <SignInButton><Button variant="outline" size={"sm"} className="h-6">Sign in to access</Button></SignInButton>
         </div>
       )}
     </RadioGroup>
