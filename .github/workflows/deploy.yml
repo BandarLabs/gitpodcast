@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [main]
+    branches: [donotdeploy]
     paths:
       - "backend/**" # Only trigger on backend changes
       - ".github/workflows/**"
