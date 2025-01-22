@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { FaTwitter } from "react-icons/fa";
 
 export function Footer() {
   return (
@@ -12,6 +13,13 @@ export function Footer() {
             className="text-orange-600 hover:underline"
           >
             @BandarLabs
+
+          </Link>
+
+        </span>
+        <span className="ml-4">
+          <Link href="https://x.com/podcastgit">
+            <FaTwitter />
           </Link>
         </span>
       </div>
