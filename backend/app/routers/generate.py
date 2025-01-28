@@ -55,7 +55,7 @@ def get_cached_github_data(username: str, repo: str):
         for fpath in file_list:
             content = github_service.get_github_file_content(username, repo, fpath)
             discuss_or_not = "- discuss this file." if '.md' not in fpath else ""
-            file_content += f"FPATH: {fpath} {discuss_or_not} \n CONTENT:{content}"
+            file_content += f"FPATH: {fpath} {discuss_or_not} \n CONTENT:{content[:50000]}"
     except Exception as e:
         print(f"Some error in getting github file content {e}. Proceeding.")
 
@@ -68,7 +68,7 @@ def get_cached_github_data(username: str, repo: str):
 
 def process_github_content(content, speech_prompt, max_length, max_tokens=None):
     content = content[:max_length]
-    print(content)
+    print(content[-200:])
 
     try:
         token_count = claude_service.count_tokens(content)
@@ -86,7 +86,7 @@ def process_github_content(content, speech_prompt, max_length, max_tokens=None):
 
     try:
         ssml_response = speech_service.generate_ssml_with_retry([temp_file_path], speech_prompt)
-        print(ssml_response)
+        print(ssml_response[-200:])
     finally:
         os.remove(temp_file_path)
 
@@ -186,7 +186,7 @@ async def generate(request: Request, body: ApiRequest):
             # Successful processing
             full_ssml_response = result
 
-        print(full_ssml_response)
+        print(full_ssml_response[-100:])
         ssml_response = full_ssml_response
 
         if not body.audio:

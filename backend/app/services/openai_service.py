@@ -38,7 +38,7 @@ class OpenAIService:
                 {"role": "user", "content": file_content}  # User prompt
             ]
         )
-        print(response)
+        # print(response)
         # Get and return the content of the assistant's reply
         assistant_response = response.choices[0].message.content.strip()
         return assistant_response

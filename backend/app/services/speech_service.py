@@ -5,7 +5,11 @@ import os
 import re
 import textwrap
 import xml.etree.ElementTree as ET
-
+import time
+import requests
+import uuid
+import zipfile
+from io import BytesIO
 
 load_dotenv()
 
@@ -35,7 +39,7 @@ class SpeechService:
 
     def text_to_mp3(self, ssml_string: str) -> bytes | None:
         """
-        Converts a string to an mp3 bytes object using Azure Text to Speech
+        Converts a string to an mp3 bytes object using Azure Text to Speech Batch Synthesis API.
 
         Args:
             ssml_string (str): Text to be converted to speech
@@ -44,38 +48,80 @@ class SpeechService:
             bytes | None: Returns mp3 bytes object, None if error
         """
 
+        MAX_RETRIES = 3
+        RETRY_DELAY = 2
+
         if not self.speech_key or not self.speech_region:
             return None
-        print(self.speech_key, ssml_string)
 
-        # This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
-        speech_config = speechsdk.SpeechConfig(subscription=os.environ.get('SPEECH_KEY'), region=os.environ.get('SPEECH_REGION'))
-        print("s1")
-        # The neural multilingual voice can speak different languages based on the input text.
-        speech_config.speech_synthesis_voice_name = 'en-US-AvaMultilingualNeural'
+        synthesis_id = str(uuid.uuid4())
+        put_url = f"https://{self.speech_region}.api.cognitive.microsoft.com/texttospeech/batchsyntheses/{synthesis_id}?api-version=2024-04-01"
 
-        speech_config.set_speech_synthesis_output_format(speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3)
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.speech_key,
+            "Content-Type": "application/json"
+        }
 
-        # # Creates a memory stream as the audio output stream instead of a file.
-        # audio_config = speechsdk.audio.AudioOutputConfig(stream=speechsdk.audio.PushAudioOutputStream(speechsdk.audio.MemoryStreamCallback()), use_default_speaker=True)
-        # speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
+        body = {
+            "description": "my ssml test",
+            "inputKind": "SSML",
+            "inputs": [
+                {"content": ssml_string}
+            ],
+            "properties": {
+                "outputFormat": "audio-16khz-32kbitrate-mono-mp3",
+                "wordBoundaryEnabled": False,
+                "sentenceBoundaryEnabled": False,
+                "concatenateResult": False,
+                "decompressOutputFiles": False
+            }
+        }
 
-        # Creates a memory stream as the audio output stream instead of a file.
-        stream_callback = MemoryStreamCallback()
-        audio_stream = speechsdk.audio.AudioOutputConfig(stream=speechsdk.audio.PushAudioOutputStream(stream_callback))
+        for attempt in range(MAX_RETRIES):
+            try:
+                put_response = requests.put(put_url, headers=headers, json=body)
+                put_response.raise_for_status()
 
-        speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_stream)
+                # Polling operation status
+                status_url = f"https://{self.speech_region}.api.cognitive.microsoft.com/texttospeech/batchsyntheses/{synthesis_id}?api-version=2024-04-01"
+                while True:
+                    time.sleep(RETRY_DELAY)
+                    status_response = requests.get(status_url, headers=headers)
+                    status_response.raise_for_status()
+                    status = status_response.json()
+                    operation_status = status.get("status")
 
-        result = speech_synthesizer.speak_ssml_async(ssml_string).get()
+                    if operation_status == "Succeeded":
+                        download_url = status["outputs"]["result"]
+                        zip_response = requests.get(download_url)
+                        zip_response.raise_for_status()
 
-        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            return stream_callback.get_audio_data()
-        elif result.reason == speechsdk.ResultReason.Canceled:
-            cancellation_details = result.cancellation_details
-            print("Speech synthesis canceled: {}".format(cancellation_details.reason))
-            if cancellation_details.reason == speechsdk.CancellationReason.Error:
-                print("Error details: {}".format(cancellation_details.error_details))
-            return b""
+                        # Extract .wav file from zip
+                        with zipfile.ZipFile(BytesIO(zip_response.content)) as zip_file:
+                            for file_name in zip_file.namelist():
+                                if file_name.endswith(".wav") or file_name.endswith(".mp3"):
+                                    with zip_file.open(file_name) as audio_file:
+                                        audio_content = audio_file.read()
+
+                                        # # Save the file locally
+                                        # with open(file_name, 'wb') as local_file:
+                                        #     local_file.write(audio_content)
+
+                                        return audio_content
+                    elif operation_status == "Failed":
+                        raise Exception("Batch synthesis failed")
+                    elif operation_status in ["Running", "NotStarted"]:
+                        continue
+                    else:
+                        raise Exception(f"Unexpected operation status: {operation_status}")
+
+            except Exception as e:
+                print(f"Exception occurred: {str(e)}")
+                if attempt < MAX_RETRIES - 1:
+                    print(f"Retrying... (attempt {attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    return None
 
     def calculate_duration(self, text_line, wpm=135):
         words = len(text_line.split())

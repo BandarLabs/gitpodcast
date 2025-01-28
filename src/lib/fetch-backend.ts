@@ -107,8 +107,8 @@ interface GenerateAudioResponse {
 
  ): Promise<GenerateAudioResponse> {
    try {
-        // Determine if we should use the cache (75% probability)
-        const useCache = Math.random() < 0.75;
+        // Determine if we should use the cache (90% probability)
+        const useCache = Math.random() < 0.90;
         if (useCache) {
             try{
                 // First, check cache for base64 encoded audio and WebVTT
