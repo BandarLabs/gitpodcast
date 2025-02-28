@@ -114,12 +114,12 @@ export default function MainCard({
     >
       <div className="flex items-center space-x-2">
         <RadioGroupItem value="short" id="short" />
-        <Label htmlFor="short">Short (~5min)</Label>
+        <Label htmlFor="short">Basic (~5min)</Label>
       </div>
       {userId ? ( // Check if user is authenticated
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="long" id="long" />
-          <Label htmlFor="long">Long (~10min)</Label>
+          <Label htmlFor="long">In Depth (~10min)</Label>
         </div>
       ) : (
         <div className="flex items-center space-x-2">
