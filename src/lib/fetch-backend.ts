@@ -47,7 +47,10 @@ interface GenerateAudioResponse {
     audioBlob?: Blob;
     vtt?: string;
  }
-
+ interface GenerateSlideResponse {
+    error?: string;
+    slide_markdown?: string;
+ }
  export async function generateAndCacheDiagram(
    username: string,
    repo: string,
@@ -95,6 +98,75 @@ interface GenerateAudioResponse {
    } catch (error) {
      console.error("Error generating diagram:", error);
      return { error: "Failed to generate diagram. Please try again later." };
+   }
+ }
+
+ export async function generateSlide(
+   username: string,
+   repo: string,
+   instructions: string,
+   api_key?: string,
+ ): Promise<GenerateSlideResponse> {
+   try {
+     // Determine if we should use the cache (90% probability)
+     const useCache = Math.random() < 0.90;
+     if (useCache) {
+       try {
+         // Check cache for slides
+         const cachedSlide = await await getCachedWebVtt(username, repo + "|slide" );;
+         if (cachedSlide) {
+           console.info("Serving slides from cache.");
+           return { slide_markdown: cachedSlide };
+         }
+       } catch (error) {
+         console.error("Error fetching slides from cache:", error);
+         // Handle the error appropriately, possibly return a fallback or rethrow
+       }
+     }
+
+     const baseUrl =
+       process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitpodcast.com";
+     const url = new URL(`${baseUrl}/generate/slide`);
+
+     const response = await fetch(url, {
+       method: "POST",
+       headers: {
+         "Content-Type": "application/json",
+       },
+       credentials: "include",
+       body: JSON.stringify({
+         username,
+         repo,
+         instructions,
+         api_key: api_key,
+       }),
+     });
+
+     if (response.status === 429) {
+       return { error: "Rate limit exceeded. Please try again later." };
+     }
+
+     if (!response.ok) {
+       const errorData = await response.json();
+       return { error: errorData.error || "Failed to generate slides" };
+     }
+
+     const slideResponse = await response.json();
+     const slideMarkdown = slideResponse.slide_markdown;
+
+     // Cache the generated slides
+    //  await cacheSlide(username, repo, slideMarkdown);
+     await cacheAudioAndWebVtt(
+        username,
+        repo + "|slide",
+        'slide',
+        slideMarkdown ?? '',
+      );
+
+     return { slide_markdown: slideMarkdown };
+   } catch (error) {
+     console.error("Error generating slides:", error);
+     return { error: "Failed to generate slides. Please try again later." };
    }
  }
 

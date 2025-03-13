@@ -6,6 +6,9 @@ import { Header } from "~/components/header";
 import { Footer } from "~/components/footer";
 import { CSPostHogProvider, GlobalStateProvider } from "./providers";
 import { ClerkProvider } from '@clerk/nextjs'
+import { ReactFlowProvider } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
 
 export const metadata: Metadata = {
   title: "GitPodcast",
@@ -76,17 +79,19 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${GeistSans.variable}`}>
-        <ClerkProvider>
-            <GlobalStateProvider>
-                <CSPostHogProvider>
-                    <body className="flex min-h-screen flex-col">
-                    <Header />
-                    <main className="flex-grow">{children}</main>
-                    <Footer />
-                    </body>
-                </CSPostHogProvider>
-            </GlobalStateProvider>
-        </ClerkProvider>
+        <ReactFlowProvider>
+            <ClerkProvider>
+                <GlobalStateProvider>
+                    <CSPostHogProvider>
+                        <body className="flex min-h-screen flex-col">
+                        <Header />
+                        <main className="flex-grow">{children}</main>
+                        <Footer />
+                        </body>
+                    </CSPostHogProvider>
+                </GlobalStateProvider>
+            </ClerkProvider>
+        </ReactFlowProvider>
     </html>
   );
 }

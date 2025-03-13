@@ -3,10 +3,13 @@ from dotenv import load_dotenv
 from app.services.github_service import GitHubService
 from app.services.claude_service import ClaudeService
 from app.services.speech_service import SpeechService
+from app.services.slide_service import SlideService
 from app.services.openai_service import OpenAIService
+
+
 from app.core.limiter import limiter
 import os
-from app.prompts import PODCAST_SSML_PROMPT_AFTER_BREAK, PODCAST_SSML_PROMPT, PODCAST_SSML_PROMPT_BEFORE_BREAK
+from app.prompts import PODCAST_SSML_PROMPT_AFTER_BREAK, PODCAST_SSML_PROMPT, PODCAST_SSML_PROMPT_BEFORE_BREAK, SLIDE_PROMPT
 from anthropic._exceptions import RateLimitError
 from pydantic import BaseModel
 from functools import lru_cache
@@ -29,6 +32,7 @@ github_service = GitHubService()
 claude_service = ClaudeService()
 speech_service = SpeechService()
 openai_service = OpenAIService()
+slide_service = SlideService()
 
 
 def is_signed_in(request: Request):
@@ -93,6 +97,33 @@ def process_github_content(content, speech_prompt, max_length, max_tokens=None):
     return ssml_response
 
 
+def process_github_content_for_slides(content, slide_prompt, max_length, max_tokens=None):
+    content = content[:max_length]
+    print(content[-200:])
+
+    try:
+        token_count = claude_service.count_tokens(content)
+        print(f"TOKEN COUNT: {token_count}")
+        if max_tokens and token_count > max_tokens:
+            return {
+                "error": "Content is too large for analysis."
+            }
+    except Exception as e:
+        print(f"{e} Error in token count")
+
+    with NamedTemporaryFile(delete=False, mode='w+', suffix='.txt') as temp_file:
+        temp_file.write(content)
+        temp_file_path = temp_file.name
+
+    try:
+        slide_markdown_response = slide_service.generate_markdown_with_retry([temp_file_path], slide_prompt)
+        print(slide_markdown_response[-200:])
+    finally:
+        os.remove(temp_file_path)
+
+    return slide_markdown_response
+
+
 def generate_ssml_concurrently(file_tree, readme, file_content, audio_length) -> str | dict:
     # Prepare the content
     if audio_length == 'short':
@@ -147,6 +178,15 @@ def generate_ssml_concurrently(file_tree, readme, file_content, audio_length) ->
 
 
 class ApiRequest(BaseModel):
+    username: str
+    repo: str
+    instructions: str
+    api_key: str | None = None
+    audio: bool = False  # new param
+    audio_length: str = 'long'
+
+
+class SlideRequest(BaseModel):
     username: str
     repo: str
     instructions: str
@@ -219,6 +259,28 @@ async def generate(request: Request, body: ApiRequest):
     except Exception as e:
         return {"error": str(e)}
 
+@router.post("/slide")
+async def generate_slide(request: Request, body: SlideRequest):
+    try:
+        if len(body.instructions) > 1000:
+            return {"error": "Instructions exceed maximum length of 1000 characters"}
+
+        # audio_length = body.audio_length
+
+        # if audio_length == 'long' and not is_signed_in(request):
+        #     raise HTTPException(
+        #         status_code=401,
+        #         detail="Please sign in to access this resource"
+        #     )
+        github_data = get_cached_github_data(body.username, body.repo)
+        default_branch = github_data["default_branch"]
+        file_tree = github_data["file_tree"]
+        readme = github_data["readme"]
+        file_content = github_data["file_content"]
+        markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        return {"slide_markdown": markdown}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @router.post("/cost")
 # @limiter.limit("5/minute") # TEMP: disable rate limit for growth??

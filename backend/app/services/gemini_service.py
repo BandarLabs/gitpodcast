@@ -40,9 +40,9 @@ class GeminiService:
         print("...all files ready")
         print()
 
-    def call_gemini_flash_for_ssml(self, file_paths, ssml_prompt):
+    def call_gemini_flash(self, file_paths, prompt, last_message="JUST GIVE SSML. Dont put formatting of backticks etc."):
         """
-        Calls the Gemini Flash API to generate SSML based on a given prompt.
+        Calls the Gemini Flash API to generate SSML/markdown etc based on a given prompt.
 
         Args:
             file_paths (list): List of paths to files to upload.
@@ -78,12 +78,12 @@ class GeminiService:
                     "role": "user",
                     "parts": [
                         files[0],
-                        ssml_prompt,
+                        prompt,
                     ],
                 },
             ]
         )
-        response = chat_session.send_message("JUST GIVE SSML. Dont put formatting of backticks etc.")
+        response = chat_session.send_message(last_message)
 
         print(response.text)
         return response.text  # Retrieve the response text, adjust as needed
@@ -93,5 +93,5 @@ if __name__ == "__main__":
     ssml_prompt = """Can you convert it into a podcast so that someone could listen to it and understand what's going on - make it a ssml similar to this: <speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\">\n<voice name=\"en-US-AvaMultilingualNeural\">\nWelcome to Next Gen Innovators!  (no need to open links) .. also make it a conversation between host and guest of a podcast, question answer kind. \n\n<break time=\"500ms\" />\nI’m your host, Ava, and today we’re diving into an exciting topic: how students can embark on their entrepreneurial journey right from college.\n<break time=\"700ms\" />\nJoining us is Arun Sharma, a seasoned entrepreneur with over two decades of experience and a passion for mentoring young innovators.\n<break time=\"500ms\" />\nArun, it’s a pleasure to have you here.\n</voice>\n\n<voice name=\"en-US-BrianMultilingualNeural\">\n    Thank you, Ava.\n    <break time=\"300ms\" />\n    It’s great to be here. I’m excited to talk about how students can channel their creativity and energy into building impactful ventures.\n</voice> ..\n","""
     file_paths = ["/Users/manish/Downloads/ahmedkhaleel2004-gitdiagram.txt"]
     gemini_service = GeminiService()
-    ssml_response = gemini_service.call_gemini_flash_for_ssml(file_paths, ssml_prompt)
+    ssml_response = gemini_service.call_gemini_flash(file_paths, ssml_prompt)
     print(ssml_response)

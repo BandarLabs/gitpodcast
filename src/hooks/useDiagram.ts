@@ -6,6 +6,7 @@ import {
   modifyAndCacheDiagram,
   getCostOfGeneration,
   generateAudio,
+  generateSlide,
 } from "~/lib/fetch-backend";
 import { exampleRepos } from "~/lib/exampleRepos";
 
@@ -32,6 +33,7 @@ export function useDiagram(username: string, repo: string, audio_length: string,
   const [tokenCount, setTokenCount] = useState<number>(0);
   const [audioUrl, setAudioUrl] = useState("");
   const [subtitleUrl, setSubtitleUrl] = useState("");
+  const [slides, setSlides] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isExampleRepo = (repoName: string): boolean => {
@@ -71,6 +73,7 @@ export function useDiagram(username: string, repo: string, audio_length: string,
         setLoading(true);
         setError("");
         try {
+            const slidePromise = generateSlide(username, repo, audio_length, "");
             const audioResult = await generateAudio(username, repo, audio_length, "");
 
             if (audioResult.error) {
@@ -94,6 +97,23 @@ export function useDiagram(username: string, repo: string, audio_length: string,
                     setSubtitleUrl(vttUrl);
                 }
                 audioRef.current?.load(); // Reload the audio element to display the player correctly
+            }
+
+            try {
+                const slideResult = await slidePromise;
+                if (slideResult.error) {
+                    setError(slideResult.error);
+                } else {
+                    const slidesArray = slideResult.slide_markdown!.split('---'); // Assume slides are separated by '---'
+
+                    setSlides(slidesArray.slice(3)); // Set the slides array
+                    console.log('Slide generated successfully:', slidesArray);
+
+
+                }
+            } catch (slideError) {
+                console.error("Error generating slide:", slideError);
+                setError("Failed to generate slide. Please try again later.");
             }
         } catch (error) {
             console.error("Error generating audio:", error);
@@ -205,6 +225,7 @@ export function useDiagram(username: string, repo: string, audio_length: string,
     handleAudio,
     audioUrl,
     audioRef,
-    subtitleUrl
+    subtitleUrl,
+    slides
   };
 }

@@ -17,7 +17,7 @@ class OpenAIService:
         # Model name should match your Azure configuration
         self.model_name = os.environ.get("AZURE_OPENAI_MODEL_NAME", "gpt-4o")
 
-    def call_openai_for_response(self, files_path, ssml_prompt_text):
+    def call_openai_for_response(self, files_path, prompt_text):
         """
         Calls Azure OpenAI API to generate a response based on the given text prompt.
 
@@ -34,7 +34,7 @@ class OpenAIService:
         response = openai.chat.completions.create(
             model=self.model_name,
             messages=[
-                {"role": "system", "content": ssml_prompt_text},  # Initial system prompt
+                {"role": "system", "content": prompt_text},  # Initial system prompt
                 {"role": "user", "content": file_content}  # User prompt
             ]
         )

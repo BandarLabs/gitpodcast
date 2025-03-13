@@ -84,3 +84,85 @@ video {
     margin-top: 40px;
     color: rgb(8, 136, 44);
 }
+
+html,
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+}
+
+body {
+  margin: 0;
+  background-color: #f8f8f8;
+  font-family: sans-serif;
+  color: #111;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.slide {
+  box-sizing: border-box;
+  box-shadow: 0rem 1rem 4rem 0.25rem rgba(0, 0, 0, 0.06);
+  width: 100%;
+  height: 800px;
+  overflow: hidden;
+  position: relative;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 3rem;
+  padding-top: 5rem;
+  padding-left: 4rem;
+  font-size: 1.5rem;
+}
+
+.slide h1 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.slide ul li {
+  margin-bottom: 1rem;
+}
+
+.slide__controls {
+  position: absolute;
+  bottom: 4rem;
+  right: 4rem;
+  display: flex;
+  justify-content: end;
+  gap: 1rem;
+}
+
+.slide__controls button {
+  font-size: 2rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 2px solid #000;
+  background-color: #fff;
+  color: #111;
+
+  &:hover {
+    background-color: #f8f8f8;
+  }
+
+  &:active {
+    background-color: #e0e0e0;
+  }
+}
+
+@keyframes dash {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
