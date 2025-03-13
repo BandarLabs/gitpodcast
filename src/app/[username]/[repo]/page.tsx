@@ -27,7 +27,7 @@ import {
     CardHeader
 } from "~/components/ui/card"
 import { ApiKeyButton } from "~/components/api-key-button";
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, KeyboardEventHandler } from 'react';
 
 import { parseWebVTT, syncSubtitle } from "~/lib/utils";
 import { useGlobalState } from "~/app/providers";
@@ -134,7 +134,8 @@ const Repo: React.FC = () => {
             const id = String(index + 1).padStart(2, '0'); // Generate an ID based on the index
 
             // Manually define navigation rules for simplicity
-            let navigation = {};
+            let navigation: { left?: string; right?: string } = {};
+
             if (index > 0) {
                 navigation.left = String(index).padStart(2, '0');
             }
@@ -149,7 +150,7 @@ const Repo: React.FC = () => {
             // alert(acc);
             return acc;
         },
-        {},
+        {} as { [key: string]: { up?: string; down?: string; left?: string; right?: string; source: string } },
     );
 
     useEffect(() => {
@@ -158,8 +159,8 @@ const Repo: React.FC = () => {
           intervalId = setInterval(() => {
             setCurrentSlide((prevSlide) => {
               const slide = parsedSlides[prevSlide];
-              fitView({ nodes: [{ id: slide.right || '01' }], duration: 150 });
-              return slide.right || '01';
+              fitView({ nodes: [{ id: slide?.right ?? '01' }], duration: 150 });
+              return slide?.right ?? '01';
             });
 
           }, AUTO_PLAY_INTERVAL);
@@ -182,7 +183,8 @@ const Repo: React.FC = () => {
             case 'ArrowDown':
             case 'ArrowRight':
               const direction = event.key.slice(5).toLowerCase();
-              const target = slide[direction];
+              if (!slide) break;
+              const target = slide[direction as 'left' | 'right' | 'up' | 'down'];
 
               if (target) {
                 event.preventDefault();
@@ -203,14 +205,16 @@ const Repo: React.FC = () => {
         const edges = [];
 
         while (stack.length) {
-            const { id, position } = stack.pop();
-            const slide = parsedSlides[id];
+            const item = stack.pop();
+            if (!item) continue;
+            const { id, position } = item;
+            const slide = parsedSlides[id ?? '01'];
 
             const node = {
-                id,
+                id: id ?? '01',
                 type: 'slide',
                 position,
-                data: slide,
+                data: slide || { source: '' },
                 draggable: false,
             } satisfies Node<SlideData>;
 
