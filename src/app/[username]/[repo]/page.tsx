@@ -134,7 +134,7 @@ const Repo: React.FC = () => {
             const id = String(index + 1).padStart(2, '0'); // Generate an ID based on the index
 
             // Manually define navigation rules for simplicity
-            let navigation: { left?: string; right?: string } = {};
+            const navigation: { left?: string; right?: string } = {};
 
             if (index > 0) {
                 navigation.left = String(index).padStart(2, '0');
@@ -150,7 +150,7 @@ const Repo: React.FC = () => {
             // alert(acc);
             return acc;
         },
-        {} as { [key: string]: { up?: string; down?: string; left?: string; right?: string; source: string } },
+        {} as Record<string, { up?: string; down?: string; left?: string; right?: string; source: string }>,
     );
 
     useEffect(() => {
@@ -214,7 +214,7 @@ const Repo: React.FC = () => {
                 id: id ?? '01',
                 type: 'slide',
                 position,
-                data: slide || { source: '' },
+                data: slide ?? { source: '' },
                 draggable: false,
             } satisfies Node<SlideData>;
 

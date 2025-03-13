@@ -113,7 +113,7 @@ interface GenerateAudioResponse {
      if (useCache) {
        try {
          // Check cache for slides
-         const cachedSlide = await await getCachedWebVtt(username, repo + "|slide" );;
+         const cachedSlide = await getCachedWebVtt(username, repo + "|slide" );;
          if (cachedSlide) {
            console.info("Serving slides from cache.");
            return { slide_markdown: cachedSlide };

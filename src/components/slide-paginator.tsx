@@ -29,22 +29,20 @@ const style = {
 } satisfies React.CSSProperties;
 
 async function renderMarkdown(markdown: string): Promise<string> {
-    const file = await unified()
-      .use(remarkParse)
-      .use(remarkRehype)
-      .use(rehypeDocument, { title: 'Slide' })
-      .use(rehypeHighlight)
-      .use(rehypeFormat)
-      .use(rehypeStringify)
-      .process(markdown);
+  const file = await unified()
+    .use(remarkParse)
+    .use(remarkRehype)
+    .use(rehypeDocument, { title: 'Slide' })
+    .use(rehypeHighlight)
+    .use(rehypeFormat)
+    .use(rehypeStringify)
+    .process(markdown);
 
-    return String(file);
-  }
+  return String(file);
+}
+
 export function Slide({ data }: NodeProps<SlideNode>) {
-    if (!data) return null;
-  const { source, left, up, down, right } = data;
   const { fitView } = useReactFlow();
-
   const moveToNextSlide = useCallback(
     (event: React.MouseEvent, id: string) => {
       event.stopPropagation();
@@ -52,15 +50,25 @@ export function Slide({ data }: NodeProps<SlideNode>) {
     },
     [fitView],
   );
+
   const [html, setHtml] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    renderMarkdown(source).then(setHtml);
-  }, [source]);
+    if (data) {
+      renderMarkdown(data.source).then(setHtml);
+    } else {
+      setHtml(null);
+    }
+  }, [data]);
+
+  if (!data) {
+    return null;
+  }
+
+  const { left, up, down, right } = data;
 
   return (
     <article className="slide" style={style}>
-      {/* <Remark key={source}>{source}</Remark> */}
       {html && <div dangerouslySetInnerHTML={{ __html: html }} />}
       <footer className="slide__controls nopan">
         {left && <button onClick={(e) => moveToNextSlide(e, left)}>←</button>}
