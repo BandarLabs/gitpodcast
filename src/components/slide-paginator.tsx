@@ -19,8 +19,8 @@ export type SlideData = {
   right?: string;
 };
 
-export const SLIDE_WIDTH = 600;
-export const SLIDE_HEIGHT = 600;
+export const SLIDE_WIDTH = 800;
+export const SLIDE_HEIGHT = 800;
 export const SLIDE_PADDING = 100;
 
 const style = {
@@ -56,7 +56,6 @@ export function Slide({ data }: NodeProps<SlideNode>) {
   React.useEffect(() => {
     if (data) {
       renderMarkdown(data.source).then(setHtml);
-      fitView({ nodes: [{ id: "01" }], duration: 150 });
     } else {
       setHtml(null);
     }
