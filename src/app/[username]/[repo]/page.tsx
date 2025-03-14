@@ -153,12 +153,21 @@ const Repo: React.FC = () => {
         {} as Record<string, { up?: string; down?: string; left?: string; right?: string; source: string }>,
     );
 
+    // Sort the parsedSlides by key
+    const sortedParsedSlides = Object.fromEntries(
+        Object.entries(parsedSlides).sort(([a], [b]) => {
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        })
+    );
+
     useEffect(() => {
         let intervalId: NodeJS.Timeout;
         if (isAutoPlaying) {
           intervalId = setInterval(() => {
             setCurrentSlide((prevSlide) => {
-              const slide = parsedSlides[prevSlide];
+              const slide = sortedParsedSlides[prevSlide];
               fitView({ nodes: [{ id: slide?.right ?? '01' }], duration: 150 });
               return slide?.right ?? '01';
             });
@@ -171,11 +180,11 @@ const Repo: React.FC = () => {
             clearInterval(intervalId);
           }
         };
-      }, [isAutoPlaying, parsedSlides, fitView]);
+      }, [isAutoPlaying, sortedParsedSlides, fitView]);
 
     const handleKeyPress = useCallback<KeyboardEventHandler>(
         (event) => {
-          const slide = parsedSlides[currentSlide];
+          const slide = sortedParsedSlides[currentSlide];
 
           switch (event.key) {
             case 'ArrowLeft':
@@ -198,7 +207,7 @@ const Repo: React.FC = () => {
 
     // Define slidesToElements using parsedSlides
     const slidesToElements = useCallback(() => {
-        const start = Object.keys(parsedSlides)[0];
+        const start = Object.keys(sortedParsedSlides)[0];
         const stack = [{ id: start, position: { x: 0, y: 0 } }];
         const visited = new Set();
         const nodes = [];
@@ -208,7 +217,7 @@ const Repo: React.FC = () => {
             const item = stack.pop();
             if (!item) continue;
             const { id, position } = item;
-            const slide = parsedSlides[id ?? '01'];
+            const slide = sortedParsedSlides[id ?? '01'];
 
             const node = {
                 id: id ?? '01',
@@ -273,13 +282,15 @@ const Repo: React.FC = () => {
             nodes.push(node);
             visited.add(id);
         }
-
+        fitView({ nodes: [{ id: "01" }], duration: 150 });
         return { start, nodes, edges };
-    }, [parsedSlides]);
+    }, [sortedParsedSlides]);
 
 
 
     const { start, nodes, edges } = useMemo(() => slidesToElements(), [slidesToElements]);
+
+
 
     const handleNodeClick = useCallback<NodeMouseHandler>(
         (_, node) => {

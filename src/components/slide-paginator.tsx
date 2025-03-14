@@ -56,6 +56,7 @@ export function Slide({ data }: NodeProps<SlideNode>) {
   React.useEffect(() => {
     if (data) {
       renderMarkdown(data.source).then(setHtml);
+      fitView({ nodes: [{ id: "01" }], duration: 150 });
     } else {
       setHtml(null);
     }
