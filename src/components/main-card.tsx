@@ -90,7 +90,7 @@ export default function MainCard({
   return (
     <Card className="relative w-full max-w-3xl border-[3px] border-black bg-orange-200 p-4 shadow-[8px_8px_0_0_#000000] sm:p-8">
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+        <div className="flex flex-row gap-3  sm:gap-4">
           <Input
             placeholder="https://github.com/username/repo"
             className="flex-1 rounded-md border-[3px] border-black px-3 py-4 text-base font-bold shadow-[4px_4px_0_0_#000000] placeholder:text-base placeholder:font-normal placeholder:text-gray-700 sm:px-4 sm:py-6 sm:text-lg sm:placeholder:text-lg"
@@ -108,7 +108,7 @@ export default function MainCard({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div>
-        <RadioGroup
+        <RadioGroup  className="flex flex-row gap-3 sm:flex-col"
       defaultValue={audioLength}
       onValueChange={(value) => setAudioLength && setAudioLength(value)}
     >
