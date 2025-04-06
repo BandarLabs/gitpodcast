@@ -39,10 +39,12 @@ def is_signed_in(request: Request):
     sdk = Clerk(bearer_auth=os.getenv('CLERK_SECRET_KEY'))
     request_state = sdk.authenticate_request(
         request,
-        AuthenticateRequestOptions(authorized_parties=['https://gitpodcast.com'])
+        AuthenticateRequestOptions()
     )
     print("req header")
     print(request_state, request.headers)
+    if '__clerk_handshake' in request.cookies:
+        return True
     return request_state.is_signed_in
 
 # cache github data for 5 minutes to avoid double API calls from cost and generate
