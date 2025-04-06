@@ -37,8 +37,7 @@ slide_service = SlideService()
 
 def is_signed_in(request: Request):
     sdk = Clerk(bearer_auth=os.getenv('CLERK_SECRET_KEY'))
-    request_state = authenticate_request(
-        sdk,
+    request_state = sdk.authenticate_request(
         request,
         AuthenticateRequestOptions()
     )
