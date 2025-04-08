@@ -80,7 +80,7 @@ const Repo: React.FC = () => {
         audioUrl,
         audioRef,
         subtitleUrl,
-        slides
+        slides,
     } = useDiagram(params.username, params.repo, audioLength, anotherVariable);
 
 
