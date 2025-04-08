@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getCachedDiagram } from "~/app/_actions/cache";
 import { getLastGeneratedDate } from "~/app/_actions/repo";
+import { useAuth } from '@clerk/nextjs'
 import {
   generateAndCacheDiagram,
   modifyAndCacheDiagram,
@@ -35,6 +36,9 @@ export function useDiagram(username: string, repo: string, audio_length: string,
   const [subtitleUrl, setSubtitleUrl] = useState("");
   const [slides, setSlides] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Use `useAuth()` to access the `getToken()` method
+  const { getToken } = useAuth()
+
 
   const isExampleRepo = (repoName: string): boolean => {
     return Object.values(exampleRepos).some((value) =>
@@ -71,10 +75,13 @@ export function useDiagram(username: string, repo: string, audio_length: string,
 
     const handleAudio = useCallback(async () => {
         setLoading(true);
+
+        // Use `getToken()` to get the current session token
+        const token = await getToken()
         setError("");
         try {
             const slidePromise = generateSlide(username, repo, audio_length, "");
-            const audioResult = await generateAudio(username, repo, audio_length, "");
+            const audioResult = await generateAudio(username, repo, audio_length, "", token ?? undefined);
 
             if (audioResult.error) {
                 setError(audioResult.error);

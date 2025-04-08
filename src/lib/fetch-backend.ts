@@ -176,7 +176,7 @@ interface GenerateAudioResponse {
    audio_length: string,
    instructions?: string,
    api_key?: string,
-
+   session_token?: string,
  ): Promise<GenerateAudioResponse> {
    try {
         // Determine if we should use the cache (90% probability)
@@ -204,11 +204,11 @@ interface GenerateAudioResponse {
         process.env.NEXT_PUBLIC_API_DEV_URL ?? "https://api.gitpodcast.com";
       const url = new URL(`${baseUrl}/generate`);
 
-
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session_token}`
         },
         credentials: "include",
         body: JSON.stringify({
