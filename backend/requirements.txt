@@ -13,7 +13,7 @@ dnspython==2.7.0
 email_validator==2.2.0
 fastapi==0.115.6
 fastapi-cli==0.0.6
-h11==0.14.0
+h11==0.16.0
 httpcore==1.0.7
 httptools==0.6.4
 httpx==0.28.1
