@@ -85,6 +85,12 @@ class GitHubService:
 
         if response.status_code == 200:
             return response.json().get('default_branch')
+        elif response.status_code == 404:
+            raise ValueError(f"Repository {username}/{repo} not found or is private")
+        elif response.status_code == 403:
+            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+        else:
+            raise Exception(f"Failed to access repository: HTTP {response.status_code}")
         return None
 
     def get_github_file_paths_as_list(self, username, repo):
@@ -119,19 +125,27 @@ class GitHubService:
             return not any(pattern in path.lower() for pattern in excluded_patterns)
 
         # Try to get the default branch first
-        branch = self.get_default_branch(username, repo)
-        if branch:
-            api_url = f"https://api.github.com/repos/{
-                username}/{repo}/git/trees/{branch}?recursive=1"
-            response = requests.get(api_url, headers=self._get_headers())
+        try:
+            branch = self.get_default_branch(username, repo)
+            if branch:
+                api_url = f"https://api.github.com/repos/{
+                    username}/{repo}/git/trees/{branch}?recursive=1"
+                response = requests.get(api_url, headers=self._get_headers())
 
-            if response.status_code == 200:
-                data = response.json()
-                if "tree" in data:
-                    # Filter the paths and join them with newlines
-                    paths = [item['path'] for item in data['tree']
-                             if should_include_file(item['path'])]
-                    return "\n".join(paths)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "tree" in data:
+                        # Filter the paths and join them with newlines
+                        paths = [item['path'] for item in data['tree']
+                                 if should_include_file(item['path'])]
+                        return "\n".join(paths)
+                elif response.status_code == 403:
+                    raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+                elif response.status_code == 404:
+                    raise ValueError(f"Repository {username}/{repo} not found or is private")
+        except ValueError:
+            # Re-raise specific errors from get_default_branch
+            raise
 
         # If default branch didn't work or wasn't found, try common branch names
         for branch in ['main', 'master']:
@@ -146,9 +160,10 @@ class GitHubService:
                     paths = [item['path'] for item in data['tree']
                              if should_include_file(item['path'])]
                     return "\n".join(paths)
+            elif response.status_code == 403:
+                raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
 
-        raise ValueError(
-            "Could not fetch repository file tree. Repository might not exist, be empty or private.")
+        raise ValueError(f"Repository {username}/{repo} not found, is empty, or is private and requires authentication")
 
     def get_github_readme(self, username, repo):
         """
@@ -165,10 +180,11 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError("Repository not found.")
+            raise ValueError(f"Repository {username}/{repo} or README not found")
+        elif response.status_code == 403:
+            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
         elif response.status_code != 200:
-            raise Exception(f"Failed to fetch README: {
-                            response.status_code}, {response.json()}")
+            raise Exception(f"Failed to fetch README: {response.status_code}, {response.text}")
 
         data = response.json()
         readme_content = requests.get(data['download_url']).text
@@ -190,9 +206,11 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError("File not found in the repository.")
+            raise ValueError(f"File {filepath} not found in repository {username}/{repo}")
+        elif response.status_code == 403:
+            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
         elif response.status_code != 200:
-            raise Exception(f"Failed to fetch file: {response.status_code}, {response.json()}")
+            raise Exception(f"Failed to fetch file: {response.status_code}, {response.text}")
 
         data = response.json()
         file_content = b64decode(data['content'].replace("\n", "")).decode('utf-8')

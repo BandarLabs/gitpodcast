@@ -210,11 +210,17 @@ async def generate(request: Request, body: ApiRequest):
                 status_code=401,
                 detail="Please sign in to access this resource"
             )
-        github_data = get_cached_github_data(body.username, body.repo)
-        default_branch = github_data["default_branch"]
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
-        file_content = github_data["file_content"]
+        try:
+            github_data = get_cached_github_data(body.username, body.repo)
+            default_branch = github_data["default_branch"]
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+            file_content = github_data["file_content"]
+        except ValueError as e:
+            # Handle private repository and access errors
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"Failed to access repository: {str(e)}"}
 
         result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
         # Check if there was an error response
@@ -273,12 +279,18 @@ async def generate_slide(request: Request, body: SlideRequest):
         #         status_code=401,
         #         detail="Please sign in to access this resource"
         #     )
-        github_data = get_cached_github_data(body.username, body.repo)
-        default_branch = github_data["default_branch"]
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
-        file_content = github_data["file_content"]
-        markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        try:
+            github_data = get_cached_github_data(body.username, body.repo)
+            default_branch = github_data["default_branch"]
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+            file_content = github_data["file_content"]
+            markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        except ValueError as e:
+            # Handle private repository and access errors
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"Failed to access repository: {str(e)}"}
         return {"slide_markdown": markdown}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
@@ -288,9 +300,15 @@ async def generate_slide(request: Request, body: SlideRequest):
 async def get_generation_cost(request: Request, body: ApiRequest):
     try:
         # Get file tree and README content
-        github_data = get_cached_github_data(body.username, body.repo)
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
+        try:
+            github_data = get_cached_github_data(body.username, body.repo)
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+        except ValueError as e:
+            # Handle private repository and access errors
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"Failed to access repository: {str(e)}"}
 
         # Calculate combined token count
         file_tree_tokens = claude_service.count_tokens(file_tree)
