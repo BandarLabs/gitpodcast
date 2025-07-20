@@ -47,18 +47,19 @@ def is_signed_in(request: Request):
 
 # cache github data for 5 minutes to avoid double API calls from cost and generate
 @lru_cache(maxsize=100)
-def get_cached_github_data(username: str, repo: str):
-    default_branch = github_service.get_default_branch(username, repo)
+def get_cached_github_data(username: str, repo: str, user_token: str = None):
+    github_svc = GitHubService(user_token=user_token) if user_token else github_service
+    default_branch = github_svc.get_default_branch(username, repo)
     if not default_branch:
         default_branch = "main"  # fallback value
 
-    file_tree = github_service.get_github_file_paths_as_list(username, repo)
-    readme = github_service.get_github_readme(username, repo)
+    file_tree = github_svc.get_github_file_paths_as_list(username, repo)
+    readme = github_svc.get_github_readme(username, repo)
     file_content = ""
     try:
         file_list = openai_service.get_important_files(file_tree)
         for fpath in file_list:
-            content = github_service.get_github_file_content(username, repo, fpath)
+            content = github_svc.get_github_file_content(username, repo, fpath)
             discuss_or_not = "- discuss this file." if '.md' not in fpath else ""
             file_content += f"FPATH: {fpath} {discuss_or_not} \n CONTENT:{content[:50000]}"
     except Exception as e:
@@ -185,6 +186,7 @@ class ApiRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    github_token: str | None = None  # user's GitHub token for private repos
 
 
 class SlideRequest(BaseModel):
@@ -194,6 +196,7 @@ class SlideRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    github_token: str | None = None  # user's GitHub token for private repos
 
 
 # @limiter.limit("1/minute;5/day") # TEMP: disable rate limit for growth??
@@ -211,7 +214,7 @@ async def generate(request: Request, body: ApiRequest):
                 detail="Please sign in to access this resource"
             )
         try:
-            github_data = get_cached_github_data(body.username, body.repo)
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
             default_branch = github_data["default_branch"]
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
@@ -280,7 +283,7 @@ async def generate_slide(request: Request, body: SlideRequest):
         #         detail="Please sign in to access this resource"
         #     )
         try:
-            github_data = get_cached_github_data(body.username, body.repo)
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
             default_branch = github_data["default_branch"]
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
@@ -301,7 +304,7 @@ async def get_generation_cost(request: Request, body: ApiRequest):
     try:
         # Get file tree and README content
         try:
-            github_data = get_cached_github_data(body.username, body.repo)
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
         except ValueError as e:

@@ -10,7 +10,10 @@ load_dotenv()
 
 
 class GitHubService:
-    def __init__(self):
+    def __init__(self, user_token=None):
+        # User-specific token for accessing private repositories
+        self.user_token = user_token
+        
         # Try app authentication first
         self.client_id = os.getenv("GITHUB_CLIENT_ID")
         self.private_key = os.getenv("GITHUB_PRIVATE_KEY")
@@ -20,7 +23,7 @@ class GitHubService:
         self.github_token = os.getenv("GITHUB_PAT")
 
         # If no credentials are provided, warn about rate limits
-        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token:
+        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token and not self.user_token:
             print("\033[93mWarning: No GitHub credentials provided. Using unauthenticated requests with rate limit of 60 requests/hour.\033[0m")
 
         self.access_token = None
@@ -57,9 +60,10 @@ class GitHubService:
         return self.access_token
 
     def _get_headers(self):
-        # If no credentials are available, return basic headers
-        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token:
+        # Use user token first if available (for private repos)
+        if self.user_token:
             return {
+                "Authorization": f"token {self.user_token}",
                 "Accept": "application/vnd.github+json"
             }
 
@@ -70,12 +74,18 @@ class GitHubService:
                 "Accept": "application/vnd.github+json"
             }
 
-        # Otherwise use app authentication
-        token = self._get_installation_token()
+        # Try app authentication if configured
+        if all([self.client_id, self.private_key, self.installation_id]):
+            token = self._get_installation_token()
+            return {
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28"
+            }
+
+        # If no credentials are available, return basic headers
         return {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "Accept": "application/vnd.github+json"
         }
 
     def get_default_branch(self, username, repo):

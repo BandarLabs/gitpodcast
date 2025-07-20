@@ -106,6 +106,7 @@ interface GenerateAudioResponse {
    repo: string,
    instructions: string,
    api_key?: string,
+   githubToken?: string,
  ): Promise<GenerateSlideResponse> {
    try {
      // Determine if we should use the cache (90% probability)
@@ -139,6 +140,7 @@ interface GenerateAudioResponse {
          repo,
          instructions,
          api_key: api_key,
+         github_token: githubToken,
        }),
      });
 
@@ -177,6 +179,7 @@ interface GenerateAudioResponse {
    instructions?: string,
    api_key?: string,
    session_token?: string,
+   githubToken?: string,
  ): Promise<GenerateAudioResponse> {
    try {
         // Determine if we should use the cache (90% probability)
@@ -217,7 +220,8 @@ interface GenerateAudioResponse {
           instructions: instructions ?? "",
           api_key: api_key,
           audio: true,
-          audio_length: audio_length
+          audio_length: audio_length,
+          github_token: githubToken,
         }),
       });
 
