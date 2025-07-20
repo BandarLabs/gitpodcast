@@ -204,7 +204,10 @@ class SlideRequest(BaseModel):
 async def generate(request: Request, body: ApiRequest):
     try:
         if len(body.instructions) > 1000:
-            return {"error": "Instructions exceed maximum length of 1000 characters"}
+            raise HTTPException(
+                status_code=400,
+                detail="Instructions exceed maximum length of 1000 characters"
+            )
 
         audio_length = body.audio_length
 
@@ -220,10 +223,29 @@ async def generate(request: Request, body: ApiRequest):
             readme = github_data["readme"]
             file_content = github_data["file_content"]
         except ValueError as e:
-            # Handle private repository and access errors
-            return {"error": str(e)}
+            # Handle private repository and access errors (client-side errors)
+            error_message = str(e).lower()
+            if "not found" in error_message or "private" in error_message:
+                raise HTTPException(
+                    status_code=404,
+                    detail=str(e)
+                )
+            elif "access denied" in error_message or "authentication" in error_message:
+                raise HTTPException(
+                    status_code=403,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                )
         except Exception as e:
-            return {"error": f"Failed to access repository: {str(e)}"}
+            # Server-side errors
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to access repository: {str(e)}"
+            )
 
         result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
         # Check if there was an error response
@@ -231,7 +253,10 @@ async def generate(request: Request, body: ApiRequest):
             print("Error in processing:")
             for error in result.get("errors", []):
                 print(error)
-            return {"error": "Some error in genererating audio: E001"}
+            raise HTTPException(
+                status_code=500,
+                detail="Error occurred during audio generation"
+            )
         else:
             # Successful processing
             full_ssml_response = result
@@ -260,7 +285,10 @@ async def generate(request: Request, body: ApiRequest):
                 response.headers["Access-Control-Allow-Origin"] = "*"
                 return response
             else:
-                return {"error": "Text to speech is not available. Please set Azure speech credentials in .env E002"}
+                raise HTTPException(
+                    status_code=500,
+                    detail="Text to speech service is not available. Please check server configuration."
+                )
     except RateLimitError as e:
         raise HTTPException(
             status_code=429,
@@ -273,7 +301,10 @@ async def generate(request: Request, body: ApiRequest):
 async def generate_slide(request: Request, body: SlideRequest):
     try:
         if len(body.instructions) > 1000:
-            return {"error": "Instructions exceed maximum length of 1000 characters"}
+            raise HTTPException(
+                status_code=400,
+                detail="Instructions exceed maximum length of 1000 characters"
+            )
 
         # audio_length = body.audio_length
 
@@ -290,10 +321,29 @@ async def generate_slide(request: Request, body: SlideRequest):
             file_content = github_data["file_content"]
             markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
         except ValueError as e:
-            # Handle private repository and access errors
-            return {"error": str(e)}
+            # Handle private repository and access errors (client-side errors)
+            error_message = str(e).lower()
+            if "not found" in error_message or "private" in error_message:
+                raise HTTPException(
+                    status_code=404,
+                    detail=str(e)
+                )
+            elif "access denied" in error_message or "authentication" in error_message:
+                raise HTTPException(
+                    status_code=403,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                )
         except Exception as e:
-            return {"error": f"Failed to access repository: {str(e)}"}
+            # Server-side errors
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to access repository: {str(e)}"
+            )
         return {"slide_markdown": markdown}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
@@ -308,10 +358,29 @@ async def get_generation_cost(request: Request, body: ApiRequest):
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
         except ValueError as e:
-            # Handle private repository and access errors
-            return {"error": str(e)}
+            # Handle private repository and access errors (client-side errors)
+            error_message = str(e).lower()
+            if "not found" in error_message or "private" in error_message:
+                raise HTTPException(
+                    status_code=404,
+                    detail=str(e)
+                )
+            elif "access denied" in error_message or "authentication" in error_message:
+                raise HTTPException(
+                    status_code=403,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                )
         except Exception as e:
-            return {"error": f"Failed to access repository: {str(e)}"}
+            # Server-side errors
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to access repository: {str(e)}"
+            )
 
         # Calculate combined token count
         file_tree_tokens = claude_service.count_tokens(file_tree)
@@ -329,7 +398,10 @@ async def get_generation_cost(request: Request, body: ApiRequest):
         cost_string = f"${estimated_cost:.2f} USD"
         return {"cost": cost_string}
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate cost: {str(e)}"
+        )
 
 
 def process_click_events(diagram: str, username: str, repo: str, branch: str) -> str:
