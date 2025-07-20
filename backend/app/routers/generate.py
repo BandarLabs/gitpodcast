@@ -22,6 +22,19 @@ import concurrent.futures
 from clerk_backend_api import Clerk
 from clerk_backend_api.jwks_helpers import authenticate_request, AuthenticateRequestOptions
 
+def handle_github_error(error: Exception) -> HTTPException:
+    """Convert GitHub service errors to appropriate HTTP exceptions"""
+    if isinstance(error, ValueError):
+        error_message = str(error).lower()
+        if "not found" in error_message or "private" in error_message:
+            return HTTPException(status_code=404, detail=str(error))
+        elif "access denied" in error_message or "authentication" in error_message:
+            return HTTPException(status_code=403, detail=str(error))
+        else:
+            return HTTPException(status_code=400, detail=str(error))
+    else:
+        return HTTPException(status_code=500, detail=f"Failed to access repository: {str(error)}")
+
 
 load_dotenv()
 
@@ -222,30 +235,8 @@ async def generate(request: Request, body: ApiRequest):
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
             file_content = github_data["file_content"]
-        except ValueError as e:
-            # Handle private repository and access errors (client-side errors)
-            error_message = str(e).lower()
-            if "not found" in error_message or "private" in error_message:
-                raise HTTPException(
-                    status_code=404,
-                    detail=str(e)
-                )
-            elif "access denied" in error_message or "authentication" in error_message:
-                raise HTTPException(
-                    status_code=403,
-                    detail=str(e)
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=str(e)
-                )
-        except Exception as e:
-            # Server-side errors
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to access repository: {str(e)}"
-            )
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
 
         result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
         # Check if there was an error response
@@ -320,30 +311,8 @@ async def generate_slide(request: Request, body: SlideRequest):
             readme = github_data["readme"]
             file_content = github_data["file_content"]
             markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
-        except ValueError as e:
-            # Handle private repository and access errors (client-side errors)
-            error_message = str(e).lower()
-            if "not found" in error_message or "private" in error_message:
-                raise HTTPException(
-                    status_code=404,
-                    detail=str(e)
-                )
-            elif "access denied" in error_message or "authentication" in error_message:
-                raise HTTPException(
-                    status_code=403,
-                    detail=str(e)
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=str(e)
-                )
-        except Exception as e:
-            # Server-side errors
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to access repository: {str(e)}"
-            )
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
         return {"slide_markdown": markdown}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
@@ -357,30 +326,8 @@ async def get_generation_cost(request: Request, body: ApiRequest):
             github_data = get_cached_github_data(body.username, body.repo, body.github_token)
             file_tree = github_data["file_tree"]
             readme = github_data["readme"]
-        except ValueError as e:
-            # Handle private repository and access errors (client-side errors)
-            error_message = str(e).lower()
-            if "not found" in error_message or "private" in error_message:
-                raise HTTPException(
-                    status_code=404,
-                    detail=str(e)
-                )
-            elif "access denied" in error_message or "authentication" in error_message:
-                raise HTTPException(
-                    status_code=403,
-                    detail=str(e)
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=str(e)
-                )
-        except Exception as e:
-            # Server-side errors
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to access repository: {str(e)}"
-            )
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
 
         # Calculate combined token count
         file_tree_tokens = claude_service.count_tokens(file_tree)

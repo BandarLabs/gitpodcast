@@ -8,6 +8,12 @@ from base64 import b64decode
 
 load_dotenv()
 
+# Error message constants
+REPO_NOT_FOUND_OR_PRIVATE = "not found or is private"
+ACCESS_DENIED_PRIVATE_REPO = "Access denied to repository {}. Repository may be private and require authentication"
+REPO_OR_README_NOT_FOUND = "or README not found"
+FILE_NOT_FOUND_IN_REPO = "not found in repository {}"
+
 
 class GitHubService:
     def __init__(self, user_token=None):
@@ -96,12 +102,11 @@ class GitHubService:
         if response.status_code == 200:
             return response.json().get('default_branch')
         elif response.status_code == 404:
-            raise ValueError(f"Repository {username}/{repo} not found or is private")
+            raise ValueError(f"Repository {username}/{repo} {REPO_NOT_FOUND_OR_PRIVATE}")
         elif response.status_code == 403:
-            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
         else:
             raise Exception(f"Failed to access repository: HTTP {response.status_code}")
-        return None
 
     def get_github_file_paths_as_list(self, username, repo):
         """
@@ -150,9 +155,9 @@ class GitHubService:
                                  if should_include_file(item['path'])]
                         return "\n".join(paths)
                 elif response.status_code == 403:
-                    raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+                    raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
                 elif response.status_code == 404:
-                    raise ValueError(f"Repository {username}/{repo} not found or is private")
+                    raise ValueError(f"Repository {username}/{repo} {REPO_NOT_FOUND_OR_PRIVATE}")
         except ValueError:
             # Re-raise specific errors from get_default_branch
             raise
@@ -171,7 +176,7 @@ class GitHubService:
                              if should_include_file(item['path'])]
                     return "\n".join(paths)
             elif response.status_code == 403:
-                raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+                raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
 
         raise ValueError(f"Repository {username}/{repo} not found, is empty, or is private and requires authentication")
 
@@ -190,9 +195,9 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError(f"Repository {username}/{repo} or README not found")
+            raise ValueError(f"Repository {username}/{repo} {REPO_OR_README_NOT_FOUND}")
         elif response.status_code == 403:
-            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
         elif response.status_code != 200:
             raise Exception(f"Failed to fetch README: {response.status_code}, {response.text}")
 
@@ -216,9 +221,9 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError(f"File {filepath} not found in repository {username}/{repo}")
+            raise ValueError(f"File {filepath} {FILE_NOT_FOUND_IN_REPO.format(f'{username}/{repo}')}")
         elif response.status_code == 403:
-            raise ValueError(f"Access denied to repository {username}/{repo}. Repository may be private and require authentication")
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
         elif response.status_code != 200:
             raise Exception(f"Failed to fetch file: {response.status_code}, {response.text}")
 
