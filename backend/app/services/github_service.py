@@ -8,9 +8,18 @@ from base64 import b64decode
 
 load_dotenv()
 
+# Error message constants
+REPO_NOT_FOUND_OR_PRIVATE = "not found or is private"
+ACCESS_DENIED_PRIVATE_REPO = "Access denied to repository {}. Repository may be private and require authentication"
+REPO_OR_README_NOT_FOUND = "or README not found"
+FILE_NOT_FOUND_IN_REPO = "not found in repository {}"
+
 
 class GitHubService:
-    def __init__(self):
+    def __init__(self, user_token=None):
+        # User-specific token for accessing private repositories
+        self.user_token = user_token
+        
         # Try app authentication first
         self.client_id = os.getenv("GITHUB_CLIENT_ID")
         self.private_key = os.getenv("GITHUB_PRIVATE_KEY")
@@ -20,7 +29,7 @@ class GitHubService:
         self.github_token = os.getenv("GITHUB_PAT")
 
         # If no credentials are provided, warn about rate limits
-        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token:
+        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token and not self.user_token:
             print("\033[93mWarning: No GitHub credentials provided. Using unauthenticated requests with rate limit of 60 requests/hour.\033[0m")
 
         self.access_token = None
@@ -57,9 +66,10 @@ class GitHubService:
         return self.access_token
 
     def _get_headers(self):
-        # If no credentials are available, return basic headers
-        if not all([self.client_id, self.private_key, self.installation_id]) and not self.github_token:
+        # Use user token first if available (for private repos)
+        if self.user_token:
             return {
+                "Authorization": f"token {self.user_token}",
                 "Accept": "application/vnd.github+json"
             }
 
@@ -70,12 +80,18 @@ class GitHubService:
                 "Accept": "application/vnd.github+json"
             }
 
-        # Otherwise use app authentication
-        token = self._get_installation_token()
+        # Try app authentication if configured
+        if all([self.client_id, self.private_key, self.installation_id]):
+            token = self._get_installation_token()
+            return {
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28"
+            }
+
+        # If no credentials are available, return basic headers
         return {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "Accept": "application/vnd.github+json"
         }
 
     def get_default_branch(self, username, repo):
@@ -85,7 +101,12 @@ class GitHubService:
 
         if response.status_code == 200:
             return response.json().get('default_branch')
-        return None
+        elif response.status_code == 404:
+            raise ValueError(f"Repository {username}/{repo} {REPO_NOT_FOUND_OR_PRIVATE}")
+        elif response.status_code == 403:
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
+        else:
+            raise Exception(f"Failed to access repository: HTTP {response.status_code}")
 
     def get_github_file_paths_as_list(self, username, repo):
         """
@@ -119,19 +140,27 @@ class GitHubService:
             return not any(pattern in path.lower() for pattern in excluded_patterns)
 
         # Try to get the default branch first
-        branch = self.get_default_branch(username, repo)
-        if branch:
-            api_url = f"https://api.github.com/repos/{
-                username}/{repo}/git/trees/{branch}?recursive=1"
-            response = requests.get(api_url, headers=self._get_headers())
+        try:
+            branch = self.get_default_branch(username, repo)
+            if branch:
+                api_url = f"https://api.github.com/repos/{
+                    username}/{repo}/git/trees/{branch}?recursive=1"
+                response = requests.get(api_url, headers=self._get_headers())
 
-            if response.status_code == 200:
-                data = response.json()
-                if "tree" in data:
-                    # Filter the paths and join them with newlines
-                    paths = [item['path'] for item in data['tree']
-                             if should_include_file(item['path'])]
-                    return "\n".join(paths)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "tree" in data:
+                        # Filter the paths and join them with newlines
+                        paths = [item['path'] for item in data['tree']
+                                 if should_include_file(item['path'])]
+                        return "\n".join(paths)
+                elif response.status_code == 403:
+                    raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
+                elif response.status_code == 404:
+                    raise ValueError(f"Repository {username}/{repo} {REPO_NOT_FOUND_OR_PRIVATE}")
+        except ValueError:
+            # Re-raise specific errors from get_default_branch
+            raise
 
         # If default branch didn't work or wasn't found, try common branch names
         for branch in ['main', 'master']:
@@ -146,9 +175,10 @@ class GitHubService:
                     paths = [item['path'] for item in data['tree']
                              if should_include_file(item['path'])]
                     return "\n".join(paths)
+            elif response.status_code == 403:
+                raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
 
-        raise ValueError(
-            "Could not fetch repository file tree. Repository might not exist, be empty or private.")
+        raise ValueError(f"Repository {username}/{repo} not found, is empty, or is private and requires authentication")
 
     def get_github_readme(self, username, repo):
         """
@@ -165,10 +195,11 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError("Repository not found.")
+            raise ValueError(f"Repository {username}/{repo} {REPO_OR_README_NOT_FOUND}")
+        elif response.status_code == 403:
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
         elif response.status_code != 200:
-            raise Exception(f"Failed to fetch README: {
-                            response.status_code}, {response.json()}")
+            raise Exception(f"Failed to fetch README: {response.status_code}, {response.text}")
 
         data = response.json()
         readme_content = requests.get(data['download_url']).text
@@ -190,9 +221,11 @@ class GitHubService:
         response = requests.get(api_url, headers=self._get_headers())
 
         if response.status_code == 404:
-            raise ValueError("File not found in the repository.")
+            raise ValueError(f"File {filepath} {FILE_NOT_FOUND_IN_REPO.format(f'{username}/{repo}')}")
+        elif response.status_code == 403:
+            raise ValueError(ACCESS_DENIED_PRIVATE_REPO.format(f"{username}/{repo}"))
         elif response.status_code != 200:
-            raise Exception(f"Failed to fetch file: {response.status_code}, {response.json()}")
+            raise Exception(f"Failed to fetch file: {response.status_code}, {response.text}")
 
         data = response.json()
         file_content = b64decode(data['content'].replace("\n", "")).decode('utf-8')

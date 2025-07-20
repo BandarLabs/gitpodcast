@@ -39,6 +39,8 @@ export default function MainCard({
   const { audioLength, setAudioLength, setAnotherVariable } = useGlobalState();
   const [repoUrl, setRepoUrl] = useState("");
   const [error, setError] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [showTokenInput, setShowTokenInput] = useState(false);
   const router = useRouter();
   const handleRadioChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (setAudioLength) {
@@ -107,6 +109,41 @@ export default function MainCard({
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
+        
+        {/* GitHub Token Input - Only show if there was a private repo error */}
+        {error.includes("private") && (
+          <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="github-token" className="text-sm font-medium text-blue-800">
+                Private Repository Access
+              </Label>
+              <Button 
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTokenInput(!showTokenInput)}
+                className="text-blue-600 hover:text-blue-800 text-xs h-6 px-2"
+              >
+                {showTokenInput ? "Hide" : "Show Token Input"}
+              </Button>
+            </div>
+            {showTokenInput && (
+              <div className="space-y-2">
+                <Input
+                  id="github-token"
+                  type="password"
+                  placeholder="GitHub Personal Access Token (ghp_...)"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  className="text-sm"
+                />
+                <p className="text-xs text-blue-600">
+                  Token is used once and not stored. <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" rel="noopener noreferrer" className="underline">Learn how to create one</a>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         <div>
         <RadioGroup  className="flex flex-row gap-3 sm:flex-col"
       defaultValue={audioLength}

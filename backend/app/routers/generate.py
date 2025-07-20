@@ -22,6 +22,19 @@ import concurrent.futures
 from clerk_backend_api import Clerk
 from clerk_backend_api.jwks_helpers import authenticate_request, AuthenticateRequestOptions
 
+def handle_github_error(error: Exception) -> HTTPException:
+    """Convert GitHub service errors to appropriate HTTP exceptions"""
+    if isinstance(error, ValueError):
+        error_message = str(error).lower()
+        if "not found" in error_message or "private" in error_message:
+            return HTTPException(status_code=404, detail=str(error))
+        elif "access denied" in error_message or "authentication" in error_message:
+            return HTTPException(status_code=403, detail=str(error))
+        else:
+            return HTTPException(status_code=400, detail=str(error))
+    else:
+        return HTTPException(status_code=500, detail=f"Failed to access repository: {str(error)}")
+
 
 load_dotenv()
 
@@ -47,18 +60,19 @@ def is_signed_in(request: Request):
 
 # cache github data for 5 minutes to avoid double API calls from cost and generate
 @lru_cache(maxsize=100)
-def get_cached_github_data(username: str, repo: str):
-    default_branch = github_service.get_default_branch(username, repo)
+def get_cached_github_data(username: str, repo: str, user_token: str = None):
+    github_svc = GitHubService(user_token=user_token) if user_token else github_service
+    default_branch = github_svc.get_default_branch(username, repo)
     if not default_branch:
         default_branch = "main"  # fallback value
 
-    file_tree = github_service.get_github_file_paths_as_list(username, repo)
-    readme = github_service.get_github_readme(username, repo)
+    file_tree = github_svc.get_github_file_paths_as_list(username, repo)
+    readme = github_svc.get_github_readme(username, repo)
     file_content = ""
     try:
         file_list = openai_service.get_important_files(file_tree)
         for fpath in file_list:
-            content = github_service.get_github_file_content(username, repo, fpath)
+            content = github_svc.get_github_file_content(username, repo, fpath)
             discuss_or_not = "- discuss this file." if '.md' not in fpath else ""
             file_content += f"FPATH: {fpath} {discuss_or_not} \n CONTENT:{content[:50000]}"
     except Exception as e:
@@ -185,6 +199,7 @@ class ApiRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    github_token: str | None = None  # user's GitHub token for private repos
 
 
 class SlideRequest(BaseModel):
@@ -194,6 +209,7 @@ class SlideRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    github_token: str | None = None  # user's GitHub token for private repos
 
 
 # @limiter.limit("1/minute;5/day") # TEMP: disable rate limit for growth??
@@ -201,7 +217,10 @@ class SlideRequest(BaseModel):
 async def generate(request: Request, body: ApiRequest):
     try:
         if len(body.instructions) > 1000:
-            return {"error": "Instructions exceed maximum length of 1000 characters"}
+            raise HTTPException(
+                status_code=400,
+                detail="Instructions exceed maximum length of 1000 characters"
+            )
 
         audio_length = body.audio_length
 
@@ -210,11 +229,14 @@ async def generate(request: Request, body: ApiRequest):
                 status_code=401,
                 detail="Please sign in to access this resource"
             )
-        github_data = get_cached_github_data(body.username, body.repo)
-        default_branch = github_data["default_branch"]
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
-        file_content = github_data["file_content"]
+        try:
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
+            default_branch = github_data["default_branch"]
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+            file_content = github_data["file_content"]
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
 
         result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
         # Check if there was an error response
@@ -222,7 +244,10 @@ async def generate(request: Request, body: ApiRequest):
             print("Error in processing:")
             for error in result.get("errors", []):
                 print(error)
-            return {"error": "Some error in genererating audio: E001"}
+            raise HTTPException(
+                status_code=500,
+                detail="Error occurred during audio generation"
+            )
         else:
             # Successful processing
             full_ssml_response = result
@@ -251,7 +276,10 @@ async def generate(request: Request, body: ApiRequest):
                 response.headers["Access-Control-Allow-Origin"] = "*"
                 return response
             else:
-                return {"error": "Text to speech is not available. Please set Azure speech credentials in .env E002"}
+                raise HTTPException(
+                    status_code=500,
+                    detail="Text to speech service is not available. Please check server configuration."
+                )
     except RateLimitError as e:
         raise HTTPException(
             status_code=429,
@@ -264,7 +292,10 @@ async def generate(request: Request, body: ApiRequest):
 async def generate_slide(request: Request, body: SlideRequest):
     try:
         if len(body.instructions) > 1000:
-            return {"error": "Instructions exceed maximum length of 1000 characters"}
+            raise HTTPException(
+                status_code=400,
+                detail="Instructions exceed maximum length of 1000 characters"
+            )
 
         # audio_length = body.audio_length
 
@@ -273,12 +304,15 @@ async def generate_slide(request: Request, body: SlideRequest):
         #         status_code=401,
         #         detail="Please sign in to access this resource"
         #     )
-        github_data = get_cached_github_data(body.username, body.repo)
-        default_branch = github_data["default_branch"]
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
-        file_content = github_data["file_content"]
-        markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        try:
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
+            default_branch = github_data["default_branch"]
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+            file_content = github_data["file_content"]
+            markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
         return {"slide_markdown": markdown}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
@@ -288,9 +322,12 @@ async def generate_slide(request: Request, body: SlideRequest):
 async def get_generation_cost(request: Request, body: ApiRequest):
     try:
         # Get file tree and README content
-        github_data = get_cached_github_data(body.username, body.repo)
-        file_tree = github_data["file_tree"]
-        readme = github_data["readme"]
+        try:
+            github_data = get_cached_github_data(body.username, body.repo, body.github_token)
+            file_tree = github_data["file_tree"]
+            readme = github_data["readme"]
+        except (ValueError, Exception) as e:
+            raise handle_github_error(e)
 
         # Calculate combined token count
         file_tree_tokens = claude_service.count_tokens(file_tree)
@@ -308,7 +345,10 @@ async def get_generation_cost(request: Request, body: ApiRequest):
         cost_string = f"${estimated_cost:.2f} USD"
         return {"cost": cost_string}
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate cost: {str(e)}"
+        )
 
 
 def process_click_events(diagram: str, username: str, repo: str, branch: str) -> str:
