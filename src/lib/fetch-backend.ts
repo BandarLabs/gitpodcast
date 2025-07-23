@@ -56,7 +56,8 @@ interface GenerateAudioResponse {
    repo: string,
    instructions?: string,
    api_key?: string,
-   audio?: boolean
+   audio?: boolean,
+   language?: string
  ): Promise<GenerateApiResponse> {
    try {
      const baseUrl =
@@ -74,6 +75,7 @@ interface GenerateAudioResponse {
          instructions: instructions ?? "",
          api_key: api_key,
          audio: audio,
+         language: language ?? "en",
        }),
      });
 
@@ -106,6 +108,7 @@ interface GenerateAudioResponse {
    repo: string,
    instructions: string,
    api_key?: string,
+   language?: string
  ): Promise<GenerateSlideResponse> {
    try {
      // Determine if we should use the cache (90% probability)
@@ -139,6 +142,7 @@ interface GenerateAudioResponse {
          repo,
          instructions,
          api_key: api_key,
+         language: language ?? "en",
        }),
      });
 
@@ -177,6 +181,7 @@ interface GenerateAudioResponse {
    instructions?: string,
    api_key?: string,
    session_token?: string,
+   language?: string
  ): Promise<GenerateAudioResponse> {
    try {
         // Determine if we should use the cache (90% probability)
@@ -217,7 +222,8 @@ interface GenerateAudioResponse {
           instructions: instructions ?? "",
           api_key: api_key,
           audio: true,
-          audio_length: audio_length
+          audio_length: audio_length,
+          language: language ?? "en"
         }),
       });
 

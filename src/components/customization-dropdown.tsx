@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { CopyButton } from "./copy-button";
-import { Wand2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Wand2, RefreshCw, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { ActionButton } from "./action-button";
 import { Textarea } from "./ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface CustomizationDropdownProps {
   onModify: (instructions: string) => void;
   onRegenerate: (instructions: string) => void;
   onCopy: () => void;
   lastGenerated: Date;
+  language: string;
+  onLanguageChange: (language: string) => void;
 }
 
 export function CustomizationDropdown({
@@ -16,6 +19,8 @@ export function CustomizationDropdown({
   onRegenerate,
   onCopy,
   lastGenerated,
+  language,
+  onLanguageChange,
 }: CustomizationDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [instructions, setInstructions] = useState("");
@@ -76,10 +81,22 @@ export function CustomizationDropdown({
               </div>
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700">
                 Last generated: {lastGenerated.toLocaleString()}
               </span>
+              <div className="flex items-center gap-2">
+                <Globe size={16} className="text-gray-700" />
+                <Select value={language} onValueChange={onLanguageChange}>
+                  <SelectTrigger className="h-8 w-[120px] border-2 border-black text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="ja">日本語</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>

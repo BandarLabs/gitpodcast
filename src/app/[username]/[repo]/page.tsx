@@ -81,6 +81,8 @@ const Repo: React.FC = () => {
         audioRef,
         subtitleUrl,
         slides,
+        language,
+        setLanguage,
     } = useDiagram(params.username, params.repo, audioLength, anotherVariable);
 
 
@@ -311,6 +313,8 @@ const Repo: React.FC = () => {
                     onRegenerate={handleRegenerate}
                     onCopy={handleCopy}
                     lastGenerated={lastGenerated}
+                    language={language}
+                    onLanguageChange={setLanguage}
                 />
             </div>
 

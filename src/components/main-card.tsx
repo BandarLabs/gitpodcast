@@ -23,6 +23,8 @@ interface MainCardProps {
   onRegenerate?: (instructions: string) => void;
   onCopy?: () => void;
   lastGenerated?: Date;
+  language?: string;
+  onLanguageChange?: (language: string) => void;
 }
 
 export default function MainCard({
@@ -34,6 +36,8 @@ export default function MainCard({
   onRegenerate,
   onCopy,
   lastGenerated,
+  language,
+  onLanguageChange,
 }: Readonly<MainCardProps>) {
   const { isLoaded, userId, sessionId, getToken } = useAuth()
   const { audioLength, setAudioLength, setAnotherVariable } = useGlobalState();
@@ -140,6 +144,8 @@ export default function MainCard({
               onRegenerate={onRegenerate}
               onCopy={onCopy}
               lastGenerated={lastGenerated}
+              language={language || "en"}
+              onLanguageChange={onLanguageChange || (() => {})}
             />
           )}
 

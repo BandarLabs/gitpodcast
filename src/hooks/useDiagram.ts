@@ -39,6 +39,7 @@ export function useDiagram(username: string, repo: string, audio_length: string,
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const {getToken} = useAuth();
   const [session_token, setSessionToken] = useState("")
+  const [language, setLanguage] = useState<string>("en")
 
   const isExampleRepo = (repoName: string): boolean => {
     return Object.values(exampleRepos).some((value) =>
@@ -89,8 +90,8 @@ export function useDiagram(username: string, repo: string, audio_length: string,
 
         setError("");
         try {
-            const slidePromise = generateSlide(username, repo, audio_length, "");
-            const audioResult = await generateAudio(username, repo, audio_length, "", "", session_token );
+            const slidePromise = generateSlide(username, repo, audio_length, "", language);
+            const audioResult = await generateAudio(username, repo, audio_length, "", "", session_token, language);
 
             if (audioResult.error) {
                 setError(audioResult.error);
@@ -168,6 +169,9 @@ export function useDiagram(username: string, repo: string, audio_length: string,
         username,
         repo,
         instructions,
+        undefined,
+        undefined,
+        language
       );
       if (result.error) {
         console.error("Diagram generation failed:", result.error);
@@ -199,7 +203,7 @@ export function useDiagram(username: string, repo: string, audio_length: string,
     setError("");
 
     try {
-      const result = await generateAndCacheDiagram(username, repo, "", apiKey);
+      const result = await generateAndCacheDiagram(username, repo, "", apiKey, undefined, language);
       if (result.error) {
         setError(result.error);
       } else if (result.diagram) {
@@ -242,6 +246,8 @@ export function useDiagram(username: string, repo: string, audio_length: string,
     audioUrl,
     audioRef,
     subtitleUrl,
-    slides
+    slides,
+    language,
+    setLanguage
   };
 }
