@@ -10,6 +10,10 @@ from app.services.openai_service import OpenAIService
 from app.core.limiter import limiter
 import os
 from app.prompts import PODCAST_SSML_PROMPT_AFTER_BREAK, PODCAST_SSML_PROMPT, PODCAST_SSML_PROMPT_BEFORE_BREAK, SLIDE_PROMPT
+from app.prompts_jp import PODCAST_SSML_PROMPT_AFTER_BREAK as PODCAST_SSML_PROMPT_AFTER_BREAK_JP
+from app.prompts_jp import PODCAST_SSML_PROMPT as PODCAST_SSML_PROMPT_JP
+from app.prompts_jp import PODCAST_SSML_PROMPT_BEFORE_BREAK as PODCAST_SSML_PROMPT_BEFORE_BREAK_JP
+from app.prompts_jp import SLIDE_PROMPT as SLIDE_PROMPT_JP
 from anthropic._exceptions import RateLimitError
 from pydantic import BaseModel
 from functools import lru_cache
@@ -125,11 +129,12 @@ def process_github_content_for_slides(content, slide_prompt, max_length, max_tok
     return slide_markdown_response
 
 
-def generate_ssml_concurrently(file_tree, readme, file_content, audio_length) -> str | dict:
+def generate_ssml_concurrently(file_tree, readme, file_content, audio_length, language='en') -> str | dict:
     # Prepare the content
     if audio_length == 'short':
         combined_content = f"FILE TREE: {file_tree}\nREADME: {readme} IMPORTANT FILES: {file_content}"
-        ssml_response = process_github_content(combined_content, PODCAST_SSML_PROMPT, 250000, 100000)
+        prompt = PODCAST_SSML_PROMPT_JP if language == 'ja' else PODCAST_SSML_PROMPT
+        ssml_response = process_github_content(combined_content, prompt, 250000, 100000)
         return ssml_response
     else:
         combined_content_tree_readme = f"FILE TREE: {file_tree}\nREADME: {readme}"
@@ -143,17 +148,20 @@ def generate_ssml_concurrently(file_tree, readme, file_content, audio_length) ->
 
         # Use ThreadPoolExecutor to execute tasks concurrently
         with concurrent.futures.ThreadPoolExecutor() as executor:
+            prompt_before = PODCAST_SSML_PROMPT_BEFORE_BREAK_JP if language == 'ja' else PODCAST_SSML_PROMPT_BEFORE_BREAK
+            prompt_after = PODCAST_SSML_PROMPT_AFTER_BREAK_JP if language == 'ja' else PODCAST_SSML_PROMPT_AFTER_BREAK
+            
             future_tree_readme = executor.submit(
                 process_github_content,
                 combined_content_tree_readme,
-                PODCAST_SSML_PROMPT_BEFORE_BREAK,
+                prompt_before,
                 250000,
                 100000
             )
             future_file_content = executor.submit(
                 process_github_content,
                 combined_content_file_content,
-                PODCAST_SSML_PROMPT_AFTER_BREAK,
+                prompt_after,
                 250000,
                 100000
             )
@@ -172,7 +180,8 @@ def generate_ssml_concurrently(file_tree, readme, file_content, audio_length) ->
         combined_ssml_content = f"{ssml_response_tree_readme_content}\n{ssml_response_file_content_content}"
 
         # Wrap the combined content in a single <speak> tag
-        full_ssml_response = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">{combined_ssml_content}</speak>'
+        xml_lang = 'ja-JP' if language == 'ja' else 'en-US'
+        full_ssml_response = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{xml_lang}">{combined_ssml_content}</speak>'
 
         # Proceed with ssml_response_tree_readme and ssml_response_file_content as needed
         return full_ssml_response
@@ -185,6 +194,7 @@ class ApiRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    language: str = 'en'  # new param for language selection
 
 
 class SlideRequest(BaseModel):
@@ -194,6 +204,7 @@ class SlideRequest(BaseModel):
     api_key: str | None = None
     audio: bool = False  # new param
     audio_length: str = 'long'
+    language: str = 'en'  # new param for language selection
 
 
 # @limiter.limit("1/minute;5/day") # TEMP: disable rate limit for growth??
@@ -216,7 +227,7 @@ async def generate(request: Request, body: ApiRequest):
         readme = github_data["readme"]
         file_content = github_data["file_content"]
 
-        result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length)
+        result = generate_ssml_concurrently(file_tree, readme, file_content, audio_length, body.language)
         # Check if there was an error response
         if isinstance(result, dict):  # There was an error
             print("Error in processing:")
@@ -278,7 +289,8 @@ async def generate_slide(request: Request, body: SlideRequest):
         file_tree = github_data["file_tree"]
         readme = github_data["readme"]
         file_content = github_data["file_content"]
-        markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", SLIDE_PROMPT, 250000, 100000)
+        slide_prompt = SLIDE_PROMPT_JP if body.language == 'ja' else SLIDE_PROMPT
+        markdown = process_github_content_for_slides(f" file tree: {file_tree} \n contents: {file_content}", slide_prompt, 250000, 100000)
         return {"slide_markdown": markdown}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
